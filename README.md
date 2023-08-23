@@ -42,7 +42,7 @@ to build a new example application in Ruby. Or use kubectl to deploy a simple Ku
 
     kubectl create deployment hello-node --image=k8s.gcr.io/e2e-test-images/agnhost:2.33 -- /agnhost serve-hostname
 
-2) oc annotate ns linkerd-cni
+2) oc annotate ns linkerd-cni linkerd.io/inject=disabled
 
 [lab-user@bastion ~]$ oc annotate ns linkerd-cni linkerd.io/inject=disabled
 namespace/linkerd-cni annotated
@@ -51,11 +51,16 @@ namespace/linkerd-cni annotated
 
 [lab-user@bastion ~]$ oc adm policy add-scc-to-user privileged -z linkerd-cni -n linkerd-cni
 clusterrole.rbac.authorization.k8s.io/system:openshift:scc:privileged added: "linkerd-cni"
+
+4) Helm repo add
+helm repo add linkerd https://helm.linkerd.io/stable
+
+5) Helm install
 [lab-user@bastion ~]$ helm install linkerd2-cni \
-> --set installNamespace=false \
-> --set destCNIBinDir=/var/lib/cni/bin \
-> --set destCNINetDir=/etc/kubernetes/cni/net.d \
-> linkerd/linkerd2-cni
+ --set installNamespace=false \
+ --set destCNIBinDir=/var/lib/cni/bin \
+ --set destCNINetDir=/etc/kubernetes/cni/net.d \
+ linkerd/linkerd2-cni
 NAME: linkerd2-cni
 LAST DEPLOYED: Sat Aug 19 15:02:28 2023
 NAMESPACE: linkerd-cni
@@ -63,9 +68,9 @@ STATUS: deployed
 REVISION: 1
 TEST SUITE: None
 
-4) Edit the DaemonSet and add:  privileged= true
+6) Edit the DaemonSet and add:  privileged= true
 
-5) Check that DS starts ok
+7) Check that DS starts ok
 [lab-user@bastion ~]$ oc get pods
 NAME                READY   STATUS    RESTARTS   AGE
 linkerd-cni-26xd5   1/1     Running   0          94s
@@ -94,16 +99,21 @@ to build a new example application in Ruby. Or use kubectl to deploy a simple Ku
 
     kubectl create deployment hello-node --image=k8s.gcr.io/e2e-test-images/agnhost:2.33 -- /agnhost serve-hostname
 
-2) oc annotate ns linkerd
+2) oc annotate ns linkerd linkerd.io/inject=disabled
 
 [lab-user@bastion ~]$ oc annotate ns linkerd linkerd.io/inject=disabled
 namespace/linkerd annotated
 [lab-user@bastion ~]$ oc label ns linkerd linkerd.io/control-plane-ns=linkerd \
->   linkerd.io/is-control-plane=true \
->   config.linkerd.io/admission-webhooks=disabled
+   linkerd.io/is-control-plane=true \
+   config.linkerd.io/admission-webhooks=disabled
 namespace/linkerd labeled
 
-3) oc adm policy add-scc-to-user privileged -z default -n linkerd
+3)
+oc adm policy add-scc-to-user privileged -z default -n linkerd
+oc adm policy add-scc-to-user privileged -z linkerd-destination -n linkerd
+oc adm policy add-scc-to-user privileged -z linkerd-identity -n linkerd
+oc adm policy add-scc-to-user privileged -z linkerd-proxy-injector -n linkerd
+oc adm policy add-scc-to-user privileged -z linkerd-heartbeat -n linkerd
 
 [lab-user@bastion ~]$ oc adm policy add-scc-to-user privileged -z default -n linkerd
 clusterrole.rbac.authorization.k8s.io/system:openshift:scc:privileged added: "default"
@@ -116,14 +126,7 @@ clusterrole.rbac.authorization.k8s.io/system:openshift:scc:privileged added: "li
 [lab-user@bastion ~]$ oc adm policy add-scc-to-user privileged -z linkerd-heartbeat -n linkerd
 clusterrole.rbac.authorization.k8s.io/system:openshift:scc:privileged added: "linkerd-heartbeat"
 
-4) linkerd install --linkerd-cni-enabled --set installNamespace=false | oc apply -f -
-
-[lab-user@bastion ~]$ linkerd install \
->   --linkerd-cni-enabled \
->   --set installNamespace=false |
->   oc apply -f -
-Linkerd CRDs must be installed first. Run linkerd install with the --crds flag.
-error: no objects passed to apply
+4)
 [lab-user@bastion ~]$ linkerd install --crds | kubectl apply -f -
 Rendering Linkerd CRDs...
 Next, run `linkerd install | kubectl apply -f -` to install the control plane.
@@ -136,9 +139,13 @@ customresourcedefinition.apiextensions.k8s.io/serverauthorizations.policy.linker
 customresourcedefinition.apiextensions.k8s.io/servers.policy.linkerd.io created
 customresourcedefinition.apiextensions.k8s.io/serviceprofiles.linkerd.io created
 
-5) linkerd install | kubectl apply -f -
+5) linkerd install --linkerd-cni-enabled --set installNamespace=false | oc apply -f -
 
-[lab-user@bastion ~]$ linkerd install | kubectl apply -f -
+[lab-user@bastion ~]$ linkerd install \
+>   --linkerd-cni-enabled \
+>   --set installNamespace=false |
+>   oc apply -f -
+
 Warning: resource namespaces/linkerd is missing the kubectl.kubernetes.io/last-applied-configuration annotation which is required by kubectl apply. kubectl apply should only be used on resources created declaratively by either kubectl create --save-config or kubectl apply. The missing annotation will be patched automatically.
 namespace/linkerd configured
 clusterrole.rbac.authorization.k8s.io/linkerd-linkerd-identity created
@@ -274,23 +281,30 @@ to build a new example application in Ruby. Or use kubectl to deploy a simple Ku
     kubectl create deployment hello-node --image=k8s.gcr.io/e2e-test-images/agnhost:2.33 -- /agnhost serve-hostname
 
 2) oc annotate ns linkerd-viz linkerd.io/inject=enabled config.linkerd.io/proxy-await=enabled
+   oc annotate ns linkerd-viz  linkerd.io/inject=enabled
 
-[lab-user@bastion ~]$ oc annotate ns linkerd-viz \
->   linkerd.io/inject=enabled \
->   config.linkerd.io/proxy-await=enabled
+   config.linkerd.io/proxy-await=enabled
 namespace/linkerd-viz annotated
 [lab-user@bastion ~]$ oc label ns linkerd-viz \
->   linkerd.io/extension=viz
+   linkerd.io/extension=viz
 namespace/linkerd-viz labeled
 
 3)
-oc adm policy add-scc-to-user privileged -z default -n linkerd-viz;
+oc adm policy add-scc-to-user privileged -z default -n linkerd-viz
+oc adm policy add-scc-to-user privileged -z grafana -n linkerd-viz
+oc adm policy add-scc-to-user privileged -z metrics-api -n linkerd-viz
+oc adm policy add-scc-to-user privileged -z prometheus -n linkerd-viz
+oc adm policy add-scc-to-user privileged -z tap -n linkerd-viz
+oc adm policy add-scc-to-user privileged -z web -n linkerd-viz
+oc adm policy add-scc-to-user privileged -z tap-injector -n linkerd-viz
+
 
 [lab-user@bastion ~]$ oc adm policy add-scc-to-user privileged -z default -n linkerd-viz
 eus -n linkerd-viz
 oc adm policy add-scc-to-user privileged -z tap -n linkerd-viz
 oc adm policy add-scc-to-user privileged -z web -n linkerd-viz
-oc adm policy add-scc-to-user privileged -z tap-injector -n linkerd-vizclusterrole.rbac.authorization.k8s.io/system:openshift:scc:privileged added: "default"
+oc adm policy add-scc-to-user privileged -z tap-injector -n linkerd-viz
+
 [lab-user@bastion ~]$ oc adm policy add-scc-to-user privileged -z grafana -n linkerd-viz
 clusterrole.rbac.authorization.k8s.io/system:openshift:scc:privileged added: "grafana"
 [lab-user@bastion ~]$ oc adm policy add-scc-to-user privileged -z metrics-api -n linkerd-viz
@@ -351,7 +365,7 @@ authorizationpolicy.policy.linkerd.io/tap created
 clusterrole.rbac.authorization.k8s.io/linkerd-tap-injector created
 clusterrolebinding.rbac.authorization.k8s.io/linkerd-tap-injector created
 
-5) Add allowPrivilegeEscalation: true on DS with failed inits.
+5) Add allowPrivilegeEscalation: true with failed inits. (not need it)
 
 6) linkerd viz check
 [lab-user@bastion ~]$ linkerd viz check
@@ -413,8 +427,16 @@ to build a new example application in Ruby. Or use kubectl to deploy a simple Ku
 2) oc annotate ns emojivoto linkerd.io/inject=enabled
 
 [lab-user@bastion ~]$ oc annotate ns emojivoto \
->   linkerd.io/inject=enabled
+   linkerd.io/inject=enabled
+
 namespace/emojivoto annotated
+
+3) Add policy
+oc adm policy add-scc-to-user privileged -z default -n emojivoto
+oc adm policy add-scc-to-user privileged -z emoji -n emojivoto
+oc adm policy add-scc-to-user privileged -z voting -n emojivoto
+oc adm policy add-scc-to-user privileged -z web -n emojivoto
+
 [lab-user@bastion ~]$ oc adm policy add-scc-to-user privileged -z default -n emojivoto
  apply -f https://run.linkerd.io/emojivoto.ymlclusterrole.rbac.authorization.k8s.io/system:openshift:scc:privileged added: "default"
 [lab-user@bastion ~]$ oc adm policy add-scc-to-user privileged -z emoji -n emojivoto
