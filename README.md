@@ -1,4 +1,4 @@
-# linkerd installed in openshift OCP 4.10
+# HOWTO install linkerd in openshift OCP 4.10
 
 ## 0) Install tools
 1) helm
