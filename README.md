@@ -5,9 +5,22 @@
 ``` bash
 curl https://raw.githubusercontent.com/helm/helm/main/scripts/get-helm-3 | bash
 ```
+
 2) linkerd
 ``` bash
 curl --proto '=https' --tlsv1.2 -sSfL https://run.linkerd.io/install | sh
+
+$ linkerd version
+Client version: stable-2.13.6
+Server version: stable-2.13.6
+```
+3) OCP version
+``` bash
+[lab-user@bastion ~]$ oc version
+Client Version: 4.10.36
+Server Version: 4.10.36
+Kubernetes Version: v1.23.5+8471591
+
 ```
 
 
